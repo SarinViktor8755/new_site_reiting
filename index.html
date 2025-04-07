@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Беговые команды | Рейтинг</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome для иконок -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- AOS библиотека для анимаций -->
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #34495e;
+            --accent: #3498db;
+            --background: #1a1a1a;
+            --card: #2d2d2d;
+            --text: #ecf0f1;
+            --text-muted: #bdc3c7;
+        }
+
+        body {
+            background-color: var(--background);
+            color: var(--text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .hero-section {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 3rem 0;
+            margin-bottom: 2rem;
+            border-radius: 0 0 20px 20px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        }
+
+        .runner-card {
+            background: var(--card);
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+            border: 1px solid #3d3d3d;
+        }
+
+        .runner-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.3);
+            border-color: var(--accent);
+        }
+
+        .team-card {
+            background: var(--card);
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+            border-left: 5px solid var(--accent);
+            border: 1px solid #3d3d3d;
+        }
+
+        .team-card.gold {
+            border-left-color: #FFD700;
+            background: linear-gradient(90deg, rgba(39,39,39,1) 0%, rgba(61,61,61,1) 100%);
+        }
+
+        .team-card.silver {
+            border-left-color: #C0C0C0;
+            background: linear-gradient(90deg, rgba(39,39,39,1) 0%, rgba(61,61,61,1) 100%);
+        }
+
+        .team-card.bronze {
+            border-left-color: #CD7F32;
+            background: linear-gradient(90deg, rgba(39,39,39,1) 0%, rgba(61,61,61,1) 100%);
+        }
+
+        .runner-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--accent);
+            box-shadow: 0 0 10px rgba(52, 152, 219, 0.5);
+        }
+
+        .badge-km {
+            background-color: var(--primary);
+            color: var(--text);
+            font-size: 0.9rem;
+            padding: 5px 10px;
+            border-radius: 20px;
+            border: 1px solid var(--accent);
+        }
+
+        .track-bar-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .track-bar {
+            flex-grow: 1;
+            height: 20px;
+            background-color: #3d3d3d;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
+        }
+
+        .track-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), #2980b9);
+            border-radius: 10px;
+            transition: width 1s ease-out;
+            position: relative;
+        }
+
+        .track-bar-value {
+            font-size: 0.8rem;
+            font-weight: bold;
+            min-width: 40px;
+            text-align: right;
+            color: var(--text);
+        }
+
+        .table-responsive {
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .table {
+            background-color: var(--card);
+            color: var(--text);
+        }
+
+        .table thead {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+        }
+
+        .table tbody tr {
+            transition: all 0.3s ease;
+            border-bottom: 1px solid #3d3d3d;
+        }
+
+        .table tbody tr:hover {
+            background-color: rgba(52, 152, 219, 0.1);
+            transform: scale(1.01);
+        }
+
+        /* Анимации */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { 
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            to { 
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade {
+            animation: fadeIn 1s ease-in-out;
+        }
+
+        .animate-slide {
+            animation: slideUp 0.8s ease-out;
+        }
+
+        /* Мобильные стили */
+        @media (max-width: 768px) {
+            .runner-avatar {
+                width: 50px;
+                height: 50px;
+            }
+            
+            .table thead {
+                display: none;
+            }
+            
+            .table, .table tbody, .table tr, .table td {
+                display: block;
+                width: 100%;
+            }
+            
+            .table tr {
+                margin-bottom: 15px;
+                border-radius: 10px;
+                overflow: hidden;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                border: 1px solid #3d3d3d;
+            }
+            
+            .table td {
+                text-align: right;
+                padding-left: 50%;
+                position: relative;
+                border-bottom: 1px solid #3d3d3d;
+            }
+            
+            .table td::before {
+                content: attr(data-label);
+                position: absolute;
+                left: 20px;
+                width: 50%;
+                padding-right: 15px;
+                font-weight: bold;
+                text-align: left;
+                color: var(--accent);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Герой секция -->
+    <header class="hero-section animate-fade">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 text-center">
+                    <h1 class="display-4 fw-bold mb-3">Беговые команды</h1>
+                    <p class="lead">Рейтинг участников и команд за текущий месяц</p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mb-5">
+        <!-- Индивидуальный рейтинг -->
+        <div class="row">
+            <div class="col-12 mb-4" data-aos="fade-up">
+                <h3 class="text-center mb-4"><i class="fas fa-running me-2"></i>Индивидуальный рейтинг</h3>
+            </div>
+            
+            <!-- Таблица для десктопной версии -->
+            <div class="d-none d-md-block" data-aos="fade-up">
+                <div class="table-responsive animate-slide">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th scope="col" style="width: 80px;">Фото</th>
+                                <th scope="col">Ник</th>
+                                <th scope="col">Км пробежал</th>
+                                <th scope="col">% от лидера</th>
+                            </tr>
+                        </thead>
+                        <tbody id="runnersTableBody">
+                            <!-- Данные будут добавлены через JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Карточки для мобильной версии -->
+            <div class="row d-md-none" id="runnersMobileCards">
+                <!-- Данные будут добавлены через JavaScript -->
+            </div>
+        </div>
+        
+        <!-- Командный рейтинг -->
+        <div class="row mt-5">
+            <div class="col-12 mb-4" data-aos="fade-up">
+                <h3 class="text-center mb-4"><i class="fas fa-users me-2"></i>Командный рейтинг</h3>
+            </div>
+            
+            <div class="col-12" id="teamsContainer">
+                <!-- Данные будут добавлены через JavaScript -->
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-dark text-white py-4 mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6 text-center text-md-start">
+                    <p class="mb-0">© 2023 Беговые команды. Все права защищены.</p>
+                </div>
+                <div class="col-md-6 text-center text-md-end">
+                    <a href="#" class="text-white me-3"><i class="fab fa-instagram"></i></a>
+                    <a href="#" class="text-white me-3"><i class="fab fa-facebook"></i></a>
+                    <a href="#" class="text-white"><i class="fab fa-telegram"></i></a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS + Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- AOS для анимаций -->
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        // Инициализация AOS анимаций
+        AOS.init({
+            duration: 800,
+            once: true
+        });
+        
+        // Данные бегунов
+        const runners = [
+            { id: 1, name: "Скороход", distance: 342, avatar: "https://randomuser.me/api/portraits/men/32.jpg", team: "Молния" },
+            { id: 2, name: "Ветрогонка", distance: 298, avatar: "https://randomuser.me/api/portraits/women/44.jpg", team: "Ураган" },
+            { id: 3, name: "Марафонец", distance: 256, avatar: "https://randomuser.me/api/portraits/men/67.jpg", team: "Молния" },
+            { id: 4, name: "Спринтер", distance: 198, avatar: "https://randomuser.me/api/portraits/women/28.jpg", team: "Виктория" },
+            { id: 5, name: "Стайер", distance: 185, avatar: "https://randomuser.me/api/portraits/men/12.jpg", team: "Ураган" },
+            { id: 6, name: "Чемпион", distance: 165, avatar: "https://randomuser.me/api/portraits/men/45.jpg", team: "Виктория" },
+            { id: 7, name: "Рекордсмен", distance: 150, avatar: "https://randomuser.me/api/portraits/women/33.jpg", team: "Феникс" },
+            { id: 8, name: "Быстрый", distance: 135, avatar: "https://randomuser.me/api/portraits/men/22.jpg", team: "Феникс" },
+            { id: 9, name: "Легконогий", distance: 120, avatar: "https://randomuser.me/api/portraits/women/55.jpg", team: "Молния" }
+        ];
+        
+        // Создаем объект с командами
+        const teams = {};
+        
+        // Рассчитываем проценты от лидера
+        const maxDistance = Math.max(...runners.map(r => r.distance));
+        runners.forEach(runner => {
+            runner.percent = Math.round((runner.distance / maxDistance) * 100);
+            
+            // Добавляем бегуна в команду
+            if (!teams[runner.team]) {
+                teams[runner.team] = {
+                    name: runner.team,
+                    totalDistance: 0,
+                    members: []
+                };
+            }
+            teams[runner.team].totalDistance += runner.distance;
+            teams[runner.team].members.push(runner);
+        });
+        
+        // Сортируем команды по общему пробегу
+        const sortedTeams = Object.values(teams).sort((a, b) => b.totalDistance - a.totalDistance);
+        
+        // Сортируем бегунов по дистанции
+        const sortedRunners = [...runners].sort((a, b) => b.distance - a.distance);
+        
+        // Заполняем таблицу бегунов
+        document.addEventListener('DOMContentLoaded', function() {
+            const tableBody = document.getElementById('runnersTableBody');
+            const mobileCards = document.getElementById('runnersMobileCards');
+            
+            sortedRunners.forEach((runner, index) => {
+                // Для десктопной таблицы
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><img src="${runner.avatar}" alt="Аватар" class="runner-avatar"></td>
+                    <td><strong>${runner.name}</strong><br><small class="text-muted">${runner.team}</small></td>
+                    <td><span class="badge-km">${runner.distance} км</span></td>
+                    <td>
+                        <div class="track-bar-container">
+                            <div class="track-bar">
+                                <div class="track-bar-fill" style="width: ${runner.percent}%"></div>
+                            </div>
+                            <span class="track-bar-value">${runner.percent}%</span>
+                        </div>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+                
+                // Для мобильных карточек
+                const cardCol = document.createElement('div');
+                cardCol.className = 'col-12 mb-3';
+                cardCol.setAttribute('data-aos', 'fade-up');
+                cardCol.setAttribute('data-aos-delay', `${(index + 1) * 100}`);
+                
+                cardCol.innerHTML = `
+                    <div class="runner-card p-3">
+                        <div class="d-flex align-items-center">
+                            <img src="${runner.avatar}" alt="Аватар" class="runner-avatar me-3">
+                            <div class="flex-grow-1">
+                                <h5 class="mb-1">${runner.name}</h5>
+                                <small class="text-muted">${runner.team}</small>
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    <span class="badge-km">${runner.distance} км</span>
+                                </div>
+                                <div class="track-bar-container mt-2">
+                                    <div class="track-bar">
+                                        <div class="track-bar-fill" style="width: ${runner.percent}%"></div>
+                                    </div>
+                                    <span class="track-bar-value">${runner.percent}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                mobileCards.appendChild(cardCol);
+            });
+            
+            // Заполняем блок с командами
+            const teamsContainer = document.getElementById('teamsContainer');
+            
+            sortedTeams.forEach((team, index) => {
+                let medalClass = '';
+                let medalIcon = '';
+                
+                if (index === 0) {
+                    medalClass = 'gold';
+                    medalIcon = '<i class="fas fa-medal text-warning me-2"></i>';
+                } else if (index === 1) {
+                    medalClass = 'silver';
+                    medalIcon = '<i class="fas fa-medal text-secondary me-2"></i>';
+                } else if (index === 2) {
+                    medalClass = 'bronze';
+                    medalIcon = '<i class="fas fa-medal text-danger me-2"></i>';
+                }
+                
+                const teamCard = document.createElement('div');
+                teamCard.className = `team-card ${medalClass} mb-4`;
+                teamCard.setAttribute('data-aos', 'fade-up');
+                teamCard.setAttribute('data-aos-delay', `${(index + 1) * 100}`);
+                
+                teamCard.innerHTML = `
+                    <div class="p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h4 class="mb-0">${medalIcon}${team.name}</h4>
+                            <span class="badge bg-primary">${team.totalDistance} км (общий пробег)</span>
+                        </div>
+                        
+                        <div class="row">
+                            ${team.members.map(member => `
+                                <div class="col-md-4 mb-3">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <img src="${member.avatar}" alt="Аватар" class="runner-avatar me-3">
+                                        <div>
+                                            <h6 class="mb-1">${member.name}</h6>
+                                            <span class="badge-km">${member.distance} км</span>
+                                        </div>
+                                    </div>
+                                    <div class="track-bar-container">
+                                        <div class="track-bar">
+                                            <div class="track-bar-fill" style="width: ${member.percent}%"></div>
+                                        </div>
+                                        <span class="track-bar-value">${member.percent}%</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+                
+                teamsContainer.appendChild(teamCard);
+            });
+            
+            // Анимация трекбаров после загрузки
+            setTimeout(() => {
+                document.querySelectorAll('.track-bar-fill').forEach(bar => {
+                    bar.style.transition = 'width 1.5s ease-out';
+                });
+            }, 500);
+        });
+    </script>
+</body>
+</html>
