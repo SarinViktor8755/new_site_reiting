@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Турнир бегунов</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Турнир бегунов</h1>
+  </header>
+
+  <main>
+    <!-- Таблица бегунов -->
+    <section class="runners-table">
+      <h2>Список бегунов</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Фото</th>
+            <th>Ник</th>
+            <th>Км пробежал</th>
+            <th>% от лидера</th>
+          </tr>
+        </thead>
+        <tbody id="runners-list">
+          <!-- Данные будут загружены через JavaScript -->
+        </tbody>
+      </table>
+    </section>
+
+    <!-- График прогресса -->
+    <section class="charts">
+      <h2>График расстояний</h2>
+      <canvas id="distanceChart"></canvas>
+    </section>
+
+    <!-- Команды -->
+    <section class="teams">
+      <h2>Рейтинг команд</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Команда</th>
+            <th>Участники</th>
+            <th>Общее расстояние (км)</th>
+          </tr>
+        </thead>
+        <tbody id="teams-list">
+          <!-- Данные будут загружены через JavaScript -->
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2023 Турнир бегунов</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
