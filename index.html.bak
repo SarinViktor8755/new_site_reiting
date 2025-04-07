@@ -12,13 +12,13 @@
     <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
     <style>
         :root {
-            --primary: #2c3e50;
-            --secondary: #34495e;
-            --accent: #3498db;
-            --background: #1a1a1a;
-            --card: #2d2d2d;
-            --text: #ecf0f1;
-            --text-muted: #bdc3c7;
+            --primary: #4a6fa5;
+            --secondary: #166088;
+            --accent: #4fc3f7;
+            --background: #f8f9fa;
+            --card: #ffffff;
+            --text: #212529;
+            --text-muted: #6c757d;
         }
 
         body {
@@ -33,22 +33,22 @@
             padding: 3rem 0;
             margin-bottom: 2rem;
             border-radius: 0 0 20px 20px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
         }
 
         .runner-card {
             background: var(--card);
             border-radius: 15px;
             overflow: hidden;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
             transition: all 0.3s ease;
             margin-bottom: 20px;
-            border: 1px solid #3d3d3d;
+            border: 1px solid rgba(0,0,0,0.1);
         }
 
         .runner-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 15px 30px rgba(0,0,0,0.3);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
             border-color: var(--accent);
         }
 
@@ -56,26 +56,26 @@
             background: var(--card);
             border-radius: 15px;
             overflow: hidden;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
             transition: all 0.3s ease;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
             border-left: 5px solid var(--accent);
-            border: 1px solid #3d3d3d;
+            border: 1px solid rgba(0,0,0,0.1);
         }
 
         .team-card.gold {
             border-left-color: #FFD700;
-            background: linear-gradient(90deg, rgba(39,39,39,1) 0%, rgba(61,61,61,1) 100%);
+            background-color: #fffdf6;
         }
 
         .team-card.silver {
             border-left-color: #C0C0C0;
-            background: linear-gradient(90deg, rgba(39,39,39,1) 0%, rgba(61,61,61,1) 100%);
+            background-color: #f9f9f9;
         }
 
         .team-card.bronze {
             border-left-color: #CD7F32;
-            background: linear-gradient(90deg, rgba(39,39,39,1) 0%, rgba(61,61,61,1) 100%);
+            background-color: #fcf7f2;
         }
 
         .runner-avatar {
@@ -84,16 +84,15 @@
             border-radius: 50%;
             object-fit: cover;
             border: 3px solid var(--accent);
-            box-shadow: 0 0 10px rgba(52, 152, 219, 0.5);
+            box-shadow: 0 0 10px rgba(79, 195, 247, 0.2);
         }
 
         .badge-km {
             background-color: var(--primary);
-            color: var(--text);
+            color: white;
             font-size: 0.9rem;
             padding: 5px 10px;
             border-radius: 20px;
-            border: 1px solid var(--accent);
         }
 
         .track-bar-container {
@@ -105,12 +104,11 @@
 
         .track-bar {
             flex-grow: 1;
-            height: 20px;
-            background-color: #3d3d3d;
+            height: 10px;
+            background-color: #e9ecef;
             border-radius: 10px;
             overflow: hidden;
             position: relative;
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
         }
 
         .track-bar-fill {
@@ -121,6 +119,21 @@
             position: relative;
         }
 
+        .team-track-bar {
+            height: 15px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .team-track-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            border-radius: 10px;
+            transition: width 1s ease-out;
+        }
+
         .track-bar-value {
             font-size: 0.8rem;
             font-weight: bold;
@@ -129,10 +142,16 @@
             color: var(--text);
         }
 
+        .team-distance {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
         .table-responsive {
             border-radius: 15px;
             overflow: hidden;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
         }
 
         .table {
@@ -147,11 +166,11 @@
 
         .table tbody tr {
             transition: all 0.3s ease;
-            border-bottom: 1px solid #3d3d3d;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
         }
 
         .table tbody tr:hover {
-            background-color: rgba(52, 152, 219, 0.1);
+            background-color: rgba(79, 195, 247, 0.1);
             transform: scale(1.01);
         }
 
@@ -200,15 +219,14 @@
                 margin-bottom: 15px;
                 border-radius: 10px;
                 overflow: hidden;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-                border: 1px solid #3d3d3d;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.05);
             }
             
             .table td {
                 text-align: right;
                 padding-left: 50%;
                 position: relative;
-                border-bottom: 1px solid #3d3d3d;
+                border-bottom: 1px solid rgba(0,0,0,0.05);
             }
             
             .table td::before {
@@ -219,7 +237,7 @@
                 padding-right: 15px;
                 font-weight: bold;
                 text-align: left;
-                color: var(--accent);
+                color: var(--primary);
             }
         }
     </style>
@@ -309,7 +327,7 @@
         
         // Данные бегунов
         const runners = [
-            { id: 1, name: "Скороход", distance: 342, avatar: "https://randomuser.me/api/portraits/men/32.jpg", team: "Молния" },
+            { id: 1, name: "Маша", distance: 342, avatar: "370195432.jpg", team: "Vfif" },
             { id: 2, name: "Ветрогонка", distance: 298, avatar: "https://randomuser.me/api/portraits/women/44.jpg", team: "Ураган" },
             { id: 3, name: "Марафонец", distance: 256, avatar: "https://randomuser.me/api/portraits/men/67.jpg", team: "Молния" },
             { id: 4, name: "Спринтер", distance: 198, avatar: "https://randomuser.me/api/portraits/women/28.jpg", team: "Виктория" },
@@ -325,6 +343,8 @@
         
         // Рассчитываем проценты от лидера
         const maxDistance = Math.max(...runners.map(r => r.distance));
+        const maxTeamDistance = runners.reduce((sum, runner) => sum + runner.distance, 0);
+        
         runners.forEach(runner => {
             runner.percent = Math.round((runner.distance / maxDistance) * 100);
             
@@ -338,6 +358,11 @@
             }
             teams[runner.team].totalDistance += runner.distance;
             teams[runner.team].members.push(runner);
+        });
+        
+        // Рассчитываем проценты для команд
+        Object.values(teams).forEach(team => {
+            team.percent = Math.round((team.totalDistance / maxTeamDistance) * 100);
         });
         
         // Сортируем команды по общему пробегу
@@ -425,10 +450,17 @@
                     <div class="p-4">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h4 class="mb-0">${medalIcon}${team.name}</h4>
-                            <span class="badge bg-primary">${team.totalDistance} км (общий пробег)</span>
+                            <div class="text-end">
+                                <div class="team-distance">${team.totalDistance} км</div>
+                                <small class="text-muted">Общий пробег</small>
+                            </div>
                         </div>
                         
-                        <div class="row">
+                        <div class="team-track-bar">
+                            <div class="team-track-bar-fill" style="width: ${team.percent}%"></div>
+                        </div>
+                        
+                        <div class="row mt-3">
                             ${team.members.map(member => `
                                 <div class="col-md-4 mb-3">
                                     <div class="d-flex align-items-center mb-2">
@@ -455,7 +487,7 @@
             
             // Анимация трекбаров после загрузки
             setTimeout(() => {
-                document.querySelectorAll('.track-bar-fill').forEach(bar => {
+                document.querySelectorAll('.track-bar-fill, .team-track-bar-fill').forEach(bar => {
                     bar.style.transition = 'width 1.5s ease-out';
                 });
             }, 500);
