@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Нумерология - Сайт-визитка</title>
+  <!-- Подключение Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      perspective: 500px; /* Добавляем перспективу */
+      height: 100vh;
+    }
+
+    .digit {
+      position: absolute;
+      font-size: 24px;
+      font-weight: bold;
+      transform-style: preserve-3d; /* Сохраняем 3D-преобразования */
+      animation: flyThroughSpace 10s linear infinite;
+    }
+
+    @keyframes flyThroughSpace {
+      0% {
+        transform: translateZ(-1000px) rotate(0deg);
+        opacity: 0;
+      }
+      50% {
+        transform: translateZ(0px) rotate(180deg);
+        opacity: 1;
+      }
+      100% {
+        transform: translateZ(1000px) rotate(360deg);
+        opacity: 0;
+      }
+    }
+
+    .container-site {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: rgba(0, 0, 0, 0.8); /* Полупрозрачный фон для контента */
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+      z-index: 10;
+      position: relative;
+    }
+
+    .hero-section {
+      text-align: center;
+      padding: 30px 0;
+    }
+
+    .hero-section h1 {
+      font-size: 2rem;
+      margin-bottom: 20px;
+    }
+
+    .about-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 30px;
+    }
+
+    .about-section img {
+      max-width: 100%;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+
+    .services-section {
+      margin-top: 30px;
+    }
+
+    .service-card {
+      background-color: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      margin-bottom: 20px;
+      padding: 15px;
+      transition: transform 0.3s ease;
+    }
+
+    .service-card:hover {
+      transform: scale(1.05);
+    }
+
+    footer {
+      text-align: center;
+      padding: 20px 0;
+      margin-top: 30px;
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
+    }
+  </style>
+</head>
+<body>
+  <!-- Анимация летящих цифр -->
+  <script>
+    // Функция для генерации случайного числа в заданном диапазоне
+    function getRandomNumber(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+
+    // Функция для генерации случайного цвета
+    function getRandomColor() {
+      const letters = '0123456789ABCDEF';
+      let color = '#';
+      for (let i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+      }
+      return color;
+    }
+
+    // Функция для создания летающей цифры
+    function createFlyingDigit() {
+      const digit = document.createElement('div');
+      digit.classList.add('digit');
+
+      // Установка случайной цифры от 0 до 23
+      digit.textContent = Math.floor(getRandomNumber(0, 23));
+
+      // Установка случайного цвета
+      digit.style.color = getRandomColor();
+
+      // Установка случайной начальной позиции
+      digit.style.left = `${getRandomNumber(0, window.innerWidth)}px`;
+      digit.style.top = `${getRandomNumber(0, window.innerHeight)}px`;
+
+      // Установка случайного масштаба (размера)
+      const scale = getRandomNumber(0.5, 2); // Масштаб от 0.5 до 2
+      digit.style.transform = `scale(${scale})`;
+
+      // Установка случайной длительности анимации
+      digit.style.animationDuration = `${getRandomNumber(8, 15)}s`;
+
+      // Добавление цифры на страницу
+      document.body.appendChild(digit);
+
+      // Удаление элемента после завершения анимации
+      digit.addEventListener('animationend', () => {
+        digit.remove();
+      });
+    }
+
+    // Создание новых цифр каждые 500 мс
+    setInterval(createFlyingDigit, 500);
+  </script>
+
+  <!-- Основной контент сайта -->
+  <div class="container-site">
+    <!-- Hero Section -->
+    <section class="hero-section">
+      <h1>Добро пожаловать в мир нумерологии</h1>
+      <p>Раскройте тайны чисел и узнайте больше о себе</p>
+      <a href="#about" class="btn btn-light">Узнать больше</a>
+    </section>
+
+    <!-- About Section -->
+    <section id="about" class="about-section">
+      <img src="https://via.placeholder.com/300x300" alt="Фотография нумеролога" class="img-fluid rounded-circle">
+      <h2>Что такое нумерология?</h2>
+      <p>
+        Нумерология — это древняя наука о числах, которая помогает понять характер, судьбу и потенциал человека через анализ даты рождения и имени. 
+        Она позволяет раскрыть скрытые аспекты личности и предсказать ключевые моменты жизни.
+      </p>
+      <h3>Мои услуги:</h3>
+      <ul>
+        <li>Расчет жизненного пути</li>
+        <li>Анализ совместимости партнеров</li>
+        <li>Прогнозирование важных событий</li>
+      </ul>
+    </section>
+
+    <!-- Services Section -->
+    <section class="services-section">
+      <h2 class="text-center mb-4">Мои услуги</h2>
+      <div class="row">
+        <div class="col-md-4">
+          <div class="service-card">
+            <h5>Расчет жизненного пути</h5>
+            <p>Узнайте, как ваша дата рождения влияет на вашу судьбу и карьеру.</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="service-card">
+            <h5>Анализ совместимости</h5>
+            <p>Проверьте, насколько вы совместимы с вашим партнером или коллегой.</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="service-card">
+            <h5>Прогнозирование событий</h5>
+            <p>Получите прогноз на ближайшие события в вашей жизни.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <p>&copy; 2023 Нумерология. Все права защищены.</p>
+    </footer>
+  </div>
+</body>
+</html>
