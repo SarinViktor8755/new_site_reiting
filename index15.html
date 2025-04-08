@@ -52,7 +52,7 @@
   <script>
     // Функция для генерации случайного числа в заданном диапазоне
     function getRandomNumber(min, max) {
-      return Math.random() * (max - min) + min;
+      return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 
     // Функция для генерации случайного цвета
@@ -70,8 +70,8 @@
       const digit = document.createElement('div');
       digit.classList.add('digit');
 
-      // Установка случайной цифры
-      digit.textContent = Math.floor(getRandomNumber(0, 9));
+      // Установка случайной цифры от 0 до 23
+      digit.textContent = getRandomNumber(0, 23);
 
       // Установка случайного цвета
       digit.style.color = getRandomColor();
