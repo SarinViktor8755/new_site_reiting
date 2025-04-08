@@ -29,13 +29,13 @@ type FileResponse struct {
     } `json:"result"`
 }
 
-// Структура для хранения информации о пользователях в JSON
+// Структура для хранения информации о пользователях
 type User struct {
     UserID          int64     `json:"userID"`
     UserFirstName   string    `json:"userFirstName"`
-    UserLastName    string    `json:"userLastName,omitempty"` // Новое поле для фамилии
-    Username        string    `json:"username,omitempty"`     // Новое поле для никнейма
-    PhoneNumber     string    `json:"phoneNumber,omitempty"`  // Номер телефона
+    UserLastName    string    `json:"userLastName,omitempty"`
+    Username        string    `json:"username,omitempty"`
+    PhoneNumber     string    `json:"phoneNumber,omitempty"`
     RegistrationDate time.Time `json:"registrationDate"`
 }
 
@@ -43,53 +43,131 @@ type UsersData struct {
     Users []User `json:"users"`
 }
 
-// Функция для загрузки данных из JSON файла
+// Структуры для хранения сообщений
+type Message struct {
+    UserID      int64     `json:"userID"`
+    MessageID   int       `json:"messageID"`
+    Text        string    `json:"text,omitempty"`
+    PhotoIDs    []string  `json:"photoIDs,omitempty"`
+    PhotoPaths  []string  `json:"photoPaths,omitempty"`
+    MessageDate time.Time `json:"messageDate"`
+}
+
+type MessagesData struct {
+    Messages []Message `json:"messages"`
+}
+
+// Функции для работы с пользователями
 func loadUsersData(filename string) (UsersData, error) {
     var usersData UsersData
-
-    // Проверяем, существует ли файл
     if _, err := os.Stat(filename); os.IsNotExist(err) {
-        // Если файла нет, создаем пустую структуру
         return UsersData{Users: []User{}}, nil
     }
-
-    // Читаем данные из файла
     file, err := os.Open(filename)
     if err != nil {
         return UsersData{}, err
     }
     defer file.Close()
-
     decoder := json.NewDecoder(file)
     err = decoder.Decode(&usersData)
     if err != nil {
         return UsersData{}, err
     }
-
     return usersData, nil
 }
 
-// Функция для сохранения данных в JSON файл
 func saveUsersData(filename string, usersData UsersData) error {
     file, err := os.Create(filename)
     if err != nil {
         return err
     }
     defer file.Close()
-
     encoder := json.NewEncoder(file)
-    encoder.SetIndent("", "  ") // Для красивого форматирования JSON
+    encoder.SetIndent("", "  ")
     err = encoder.Encode(usersData)
     if err != nil {
         return err
     }
-
     return nil
 }
 
-// getUserAvatar получает и сохраняет аватар пользователя
+// Функции для работы с сообщениями
+func loadMessagesData(filename string) (MessagesData, error) {
+    var messagesData MessagesData
+    if _, err := os.Stat(filename); os.IsNotExist(err) {
+        return MessagesData{Messages: []Message{}}, nil
+    }
+    file, err := os.Open(filename)
+    if err != nil {
+        return MessagesData{}, err
+    }
+    defer file.Close()
+    decoder := json.NewDecoder(file)
+    err = decoder.Decode(&messagesData)
+    if err != nil {
+        return MessagesData{}, err
+    }
+    return messagesData, nil
+}
+
+func saveMessagesData(filename string, messagesData MessagesData) error {
+    file, err := os.Create(filename)
+    if err != nil {
+        return err
+    }
+    defer file.Close()
+    encoder := json.NewEncoder(file)
+    encoder.SetIndent("", "  ")
+    err = encoder.Encode(messagesData)
+    if err != nil {
+        return err
+    }
+    return nil
+}
+
+// Функция для сохранения фото из сообщения
+func saveMessagePhoto(botToken string, fileID string) (string, error) {
+    fileInfoURL := fmt.Sprintf("https://api.telegram.org/bot%s/getFile?file_id=%s", botToken, fileID)
+    resp, err := http.Get(fileInfoURL)
+    if err != nil {
+        return "", fmt.Errorf("ошибка при запросе к getFile: %v", err)
+    }
+    defer resp.Body.Close()
+
+    var fileResponse FileResponse
+    err = json.NewDecoder(resp.Body).Decode(&fileResponse)
+    if err != nil {
+        return "", fmt.Errorf("ошибка при декодировании JSON для getFile: %v", err)
+    }
+
+    fileURL := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", botToken, fileResponse.Result.FilePath)
+    if _, err := os.Stat("photos"); os.IsNotExist(err) {
+        os.Mkdir("photos", 0755)
+    }
+
+    resp, err = http.Get(fileURL)
+    if err != nil {
+        return "", fmt.Errorf("ошибка при скачивании файла: %v", err)
+    }
+    defer resp.Body.Close()
+
+    filename := fmt.Sprintf("photos/%s_%d.jpg", fileID, time.Now().Unix())
+    out, err := os.Create(filename)
+    if err != nil {
+        return "", fmt.Errorf("ошибка при создании файла: %v", err)
+    }
+    defer out.Close()
+
+    _, err = io.Copy(out, resp.Body)
+    if err != nil {
+        return "", fmt.Errorf("ошибка при записи файла: %v", err)
+    }
+
+    return filename, nil
+}
+
+// Функция для получения аватара пользователя
 func getUserAvatar(botToken string, userID string) (string, error) {
-    // Шаг 1: Получить фото профиля пользователя
     photosURL := fmt.Sprintf("https://api.telegram.org/bot%s/getUserProfilePhotos?user_id=%s", botToken, userID)
     resp, err := http.Get(photosURL)
     if err != nil {
@@ -97,22 +175,17 @@ func getUserAvatar(botToken string, userID string) (string, error) {
     }
     defer resp.Body.Close()
 
-    // Декодируем JSON-ответ
     var userProfilePhotos UserProfilePhotos
     err = json.NewDecoder(resp.Body).Decode(&userProfilePhotos)
     if err != nil {
         return "", fmt.Errorf("ошибка при декодировании JSON: %v", err)
     }
 
-    // Проверяем, есть ли фотографии
     if userProfilePhotos.Result.TotalCount == 0 {
         return "у пользователя нет аватара", nil
     }
 
-    // Берем первый файл ID из списка
     fileID := userProfilePhotos.Result.Photos[0][0].FileID
-
-    // Шаг 2: Получить путь к файлу
     fileInfoURL := fmt.Sprintf("https://api.telegram.org/bot%s/getFile?file_id=%s", botToken, fileID)
     resp, err = http.Get(fileInfoURL)
     if err != nil {
@@ -120,25 +193,24 @@ func getUserAvatar(botToken string, userID string) (string, error) {
     }
     defer resp.Body.Close()
 
-    // Декодируем JSON-ответ
     var fileResponse FileResponse
     err = json.NewDecoder(resp.Body).Decode(&fileResponse)
     if err != nil {
         return "", fmt.Errorf("ошибка при декодировании JSON для getFile: %v", err)
     }
 
-    // Формируем URL для скачивания файла
     fileURL := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", botToken, fileResponse.Result.FilePath)
-
-    // Шаг 3: Скачиваем файл
     resp, err = http.Get(fileURL)
     if err != nil {
         return "", fmt.Errorf("ошибка при скачивании файла: %v", err)
     }
     defer resp.Body.Close()
 
-    // Сохраняем файл локально
-    filename := userID + ".jpg"
+    filename := fmt.Sprintf("avatars/%s.jpg", userID)
+    if _, err := os.Stat("avatars"); os.IsNotExist(err) {
+        os.Mkdir("avatars", 0755)
+    }
+
     out, err := os.Create(filename)
     if err != nil {
         return "", fmt.Errorf("ошибка при создании файла: %v", err)
@@ -154,45 +226,36 @@ func getUserAvatar(botToken string, userID string) (string, error) {
 }
 
 func main() {
-    botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
-    if botToken == "" {
-        log.Fatal("TELEGRAM_BOT_TOKEN environment variable not set")
-    }
-
-    bot, err := tgbotapi.NewBotAPI("7217078454:AAGqrgEr_JuoJnwqwf1xU5P3lO--GnDtCIg")
+    botToken := "7217078454:AAGqrgEr_JuoJnwqwf1xU5P3lO--GnDtCIg"
+    bot, err := tgbotapi.NewBotAPI(botToken)
     if err != nil {
         log.Panic(err)
     }
 
-    bot.Debug = true
-    log.Printf("Authorized on account %s", bot.Self.UserName)
+    bot.Debug = false
+    log.Printf("Подключился как %s", bot.Self.UserName)
 
     u := tgbotapi.NewUpdate(0)
     u.Timeout = 10
 
     updates := bot.GetUpdatesChan(u)
 
-    // Имя файла для хранения данных о пользователях
+    // Файлы для хранения данных
     usersDataFile := "users_data.json"
+    messagesDataFile := "messages_data.json"
 
     for update := range updates {
         if update.Message == nil {
             continue
         }
 
-        // Загружаем данные о пользователях из файла
-        usersData, err := loadUsersData(usersDataFile)
-        if err != nil {
-            log.Printf("Ошибка при загрузке данных о пользователях: %v", err)
-        }
-
-        // Извлекаем данные
+        // Обработка пользователя
+        usersData, _ := loadUsersData(usersDataFile)
         userID := update.Message.From.ID
         userFirstName := update.Message.From.FirstName
-        userLastName := update.Message.From.LastName // Фамилия
-        username := update.Message.From.UserName    // Никнейм
+        userLastName := update.Message.From.LastName
+        username := update.Message.From.UserName
 
-        // Проверяем, есть ли уже пользователь в файле
         userExists := false
         var existingUserIndex int
         for i, user := range usersData.Users {
@@ -203,79 +266,90 @@ func main() {
             }
         }
 
-        // Если пользователь отправил контакт
+        // Обработка контакта
         if update.Message.Contact != nil {
             phoneNumber := update.Message.Contact.PhoneNumber
-
-            // Если пользователь уже существует, обновляем номер телефона
             if userExists {
                 usersData.Users[existingUserIndex].PhoneNumber = phoneNumber
             } else {
-                // Если пользователя нет, добавляем нового
                 newUser := User{
                     UserID:          userID,
                     UserFirstName:   userFirstName,
-                    UserLastName:    userLastName, // Сохраняем фамилию
-                    Username:        username,    // Сохраняем никнейм
+                    UserLastName:    userLastName,
+                    Username:        username,
                     PhoneNumber:     phoneNumber,
                     RegistrationDate: time.Now(),
                 }
                 usersData.Users = append(usersData.Users, newUser)
             }
 
-            // Сохраняем обновленные данные в файл
-            err = saveUsersData(usersDataFile, usersData)
-            if err != nil {
-                log.Printf("Ошибка при сохранении данных о пользователях: %v", err)
-            }
+            saveUsersData(usersDataFile, usersData)
 
-            // Отправляем подтверждение
             msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Номер телефона сохранен!")
             msg.ReplyToMessageID = update.Message.MessageID
-            if _, err := bot.Send(msg); err != nil {
-                log.Panic(err)
-            }
+            bot.Send(msg)
             continue
         }
 
-        // Если пользователь отправил текстовое сообщение
-        messageText := update.Message.Text
-        messageID := update.Message.MessageID
-
-        // Если пользователя нет, добавляем его
+        // Добавление нового пользователя, если его нет
         if !userExists {
             newUser := User{
                 UserID:          userID,
                 UserFirstName:   userFirstName,
-                UserLastName:    userLastName, // Сохраняем фамилию
-                Username:        username,    // Сохраняем никнейм
+                UserLastName:    userLastName,
+                Username:        username,
                 RegistrationDate: time.Now(),
             }
             usersData.Users = append(usersData.Users, newUser)
-
-            // Сохраняем обновленные данные в файл
-            err = saveUsersData(usersDataFile, usersData)
-            if err != nil {
-                log.Printf("Ошибка при сохранении данных о пользователях: %v", err)
-            }
+            saveUsersData(usersDataFile, usersData)
         }
 
-        // Формируем ответ
+        // Обработка сообщения
+        messagesData, _ := loadMessagesData(messagesDataFile)
+        newMessage := Message{
+            UserID:      userID,
+            MessageID:   update.Message.MessageID,
+            Text:        update.Message.Text,
+            MessageDate: time.Now(),
+        }
+
+        // Обработка фото
+        if update.Message.Photo != nil && len(update.Message.Photo) > 0 {
+            var photoIDs []string
+            var photoPaths []string
+
+            // Берем последнее (самое большое) фото из массива
+            photo := update.Message.Photo[len(update.Message.Photo)-1]
+            photoIDs = append(photoIDs, photo.FileID)
+
+            photoPath, err := saveMessagePhoto(botToken, photo.FileID)
+            if err != nil {
+                log.Printf("Ошибка при сохранении фото: %v", err)
+            } else {
+                photoPaths = append(photoPaths, photoPath)
+            }
+
+            newMessage.PhotoIDs = photoIDs
+            newMessage.PhotoPaths = photoPaths
+        }
+
+        messagesData.Messages = append(messagesData.Messages, newMessage)
+        saveMessagesData(messagesDataFile, messagesData)
+
+        // Формирование ответа
         replyText := "Получены следующие данные:\n\n"
-        replyText += "Текст сообщения: " + messageText + "\n"
-        replyText += "ID сообщения: " + strconv.Itoa(messageID) + "\n"
+        replyText += "Текст сообщения: " + update.Message.Text + "\n"
+        replyText += "ID сообщения: " + strconv.Itoa(update.Message.MessageID) + "\n"
         replyText += "Имя пользователя: " + userFirstName + "\n"
-        replyText += "Фамилия пользователя: " + userLastName + "\n" // Выводим фамилию
-        replyText += "Никнейм пользователя: " + username + "\n"    // Выводим никнейм
+        replyText += "Фамилия пользователя: " + userLastName + "\n"
+        replyText += "Никнейм пользователя: " + username + "\n"
         replyText += "ID пользователя: " + strconv.FormatInt(userID, 10) + "\n"
 
-        if userExists {
-            replyText += "\nПользователь уже существует в базе данных."
-        } else {
-            replyText += "\nПользователь успешно добавлен в базу данных."
+        if len(newMessage.PhotoIDs) > 0 {
+            replyText += "К сообщению прикреплено фото\n"
         }
 
-        // Добавляем информацию об аватаре
+        // Информация об аватаре
         avatarInfo, err := getUserAvatar(botToken, strconv.FormatInt(userID, 10))
         if err != nil {
             replyText += "\nИнформация об аватаре: " + err.Error()
@@ -285,9 +359,6 @@ func main() {
 
         msg := tgbotapi.NewMessage(update.Message.Chat.ID, replyText)
         msg.ReplyToMessageID = update.Message.MessageID
-
-        if _, err := bot.Send(msg); err != nil {
-            log.Panic(err)
-        }
+        bot.Send(msg)
     }
 }

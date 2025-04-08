@@ -1,293 +1,357 @@
 package main
 
 import (
-    "encoding/json"
-    "fmt"
-    "io"
-    "log"
-    "net/http"
-    "os"
-    "strconv"
-    "time"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"strconv"
+	"time"
 
-    tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-// Структуры для парсинга JSON ответов от Telegram API
-type UserProfilePhotos struct {
-    Result struct {
-        TotalCount int `json:"total_count"`
-        Photos     [][]struct {
-            FileID string `json:"file_id"`
-        } `json:"photos"`
-    } `json:"result"`
+// Структуры данных
+type (
+	UserProfilePhotos struct {
+		Result struct {
+			TotalCount int `json:"total_count"`
+			Photos     [][]struct {
+				FileID string `json:"file_id"`
+			} `json:"photos"`
+		} `json:"result"`
+	}
+
+	FileResponse struct {
+		Result struct {
+			FilePath string `json:"file_path"`
+		} `json:"result"`
+	}
+
+	User struct {
+		UserID          int64     `json:"userID"`
+		UserFirstName   string    `json:"userFirstName"`
+		UserLastName    string    `json:"userLastName,omitempty"`
+		Username        string    `json:"username,omitempty"`
+		PhoneNumber     string    `json:"phoneNumber,omitempty"`
+		RegistrationDate time.Time `json:"registrationDate"`
+	}
+
+	UsersData struct {
+		Users []User `json:"users"`
+	}
+
+	Message struct {
+		UserID      int64     `json:"userID"`
+		MessageID   int       `json:"messageID"`
+		Text        string    `json:"text,omitempty"`
+		PhotoIDs    []string  `json:"photoIDs,omitempty"`
+		PhotoPaths  []string  `json:"photoPaths,omitempty"`
+		MessageDate time.Time `json:"messageDate"`
+	}
+
+	MessagesData struct {
+		Messages []Message `json:"messages"`
+	}
+
+	BotContext struct {
+		Bot            *tgbotapi.BotAPI
+		UsersDataFile  string
+		MessagesDataFile string
+	}
+)
+
+// Инициализация бота
+func initBot(token string) (*tgbotapi.BotAPI, error) {
+	bot, err := tgbotapi.NewBotAPI(token)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка инициализации бота: %v", err)
+	}
+	bot.Debug = false
+	log.Printf("Подключился %s", bot.Self.UserName)
+	return bot, nil
 }
 
-type FileResponse struct {
-    Result struct {
-        FilePath string `json:"file_path"`
-    } `json:"result"`
+// Работа с файлами данных
+func loadJSONData(filename string, target interface{}) error {
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		return nil
+	}
+
+	file, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	return json.NewDecoder(file).Decode(target)
 }
 
-// Структура для хранения информации о пользователях в JSON
-type User struct {
-    UserID          int64     `json:"userID"`
-    UserFirstName   string    `json:"userFirstName"`
-    UserLastName    string    `json:"userLastName,omitempty"` // Новое поле для фамилии
-    Username        string    `json:"username,omitempty"`     // Новое поле для никнейма
-    PhoneNumber     string    `json:"phoneNumber,omitempty"`  // Номер телефона
-    RegistrationDate time.Time `json:"registrationDate"`
+func saveJSONData(filename string, data interface{}) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(data)
 }
 
-type UsersData struct {
-    Users []User `json:"users"`
+// Обработка пользователей
+func handleUserRegistration(ctx *BotContext, update tgbotapi.Update) error {
+	usersData := UsersData{}
+	if err := loadJSONData(ctx.UsersDataFile, &usersData); err != nil {
+		return err
+	}
+
+	from := update.Message.From
+	userID := from.ID
+
+	// Проверка существования пользователя
+	var userExists bool
+	var existingUserIndex int
+	for i, user := range usersData.Users {
+		if user.UserID == userID {
+			userExists = true
+			existingUserIndex = i
+			break
+		}
+	}
+
+	// Обработка контакта
+	if update.Message.Contact != nil {
+		phoneNumber := update.Message.Contact.PhoneNumber
+
+		if userExists {
+			usersData.Users[existingUserIndex].PhoneNumber = phoneNumber
+		} else {
+			usersData.Users = append(usersData.Users, User{
+				UserID:          userID,
+				UserFirstName:   from.FirstName,
+				UserLastName:    from.LastName,
+				Username:        from.UserName,
+				PhoneNumber:     phoneNumber,
+				RegistrationDate: time.Now(),
+			})
+		}
+
+		if err := saveJSONData(ctx.UsersDataFile, usersData); err != nil {
+			return err
+		}
+
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Номер телефона сохранен!")
+		msg.ReplyToMessageID = update.Message.MessageID
+		_, err := ctx.Bot.Send(msg)
+		return err
+	}
+
+	// Регистрация нового пользователя
+	if !userExists {
+		usersData.Users = append(usersData.Users, User{
+			UserID:          userID,
+			UserFirstName:   from.FirstName,
+			UserLastName:    from.LastName,
+			Username:        from.UserName,
+			RegistrationDate: time.Now(),
+		})
+
+		return saveJSONData(ctx.UsersDataFile, usersData)
+	}
+
+	return nil
 }
 
-// Функция для загрузки данных из JSON файла
-func loadUsersData(filename string) (UsersData, error) {
-    var usersData UsersData
+// Обработка сообщений
+func handleMessage(ctx *BotContext, update tgbotapi.Update) error {
+	messagesData := MessagesData{}
+	if err := loadJSONData(ctx.MessagesDataFile, &messagesData); err != nil {
+		return err
+	}
 
-    // Проверяем, существует ли файл
-    if _, err := os.Stat(filename); os.IsNotExist(err) {
-        // Если файла нет, создаем пустую структуру
-        return UsersData{Users: []User{}}, nil
-    }
+	newMessage := Message{
+		UserID:      update.Message.From.ID,
+		MessageID:   update.Message.MessageID,
+		Text:        update.Message.Text,
+		MessageDate: time.Now(),
+	}
 
-    // Читаем данные из файла
-    file, err := os.Open(filename)
-    if err != nil {
-        return UsersData{}, err
-    }
-    defer file.Close()
+	// Обработка фото
+	if len(update.Message.Photo) > 0 {
+		photo := update.Message.Photo[len(update.Message.Photo)-1]
+		newMessage.PhotoIDs = append(newMessage.PhotoIDs, photo.FileID)
 
-    decoder := json.NewDecoder(file)
-    err = decoder.Decode(&usersData)
-    if err != nil {
-        return UsersData{}, err
-    }
+		if photoPath, err := saveMessagePhoto(ctx.Bot.Token, photo.FileID); err == nil {
+			newMessage.PhotoPaths = append(newMessage.PhotoPaths, photoPath)
+		} else {
+			log.Printf("Ошибка сохранения фото: %v", err)
+		}
+	}
 
-    return usersData, nil
+	messagesData.Messages = append(messagesData.Messages, newMessage)
+	return saveJSONData(ctx.MessagesDataFile, messagesData)
 }
 
-// Функция для сохранения данных в JSON файл
-func saveUsersData(filename string, usersData UsersData) error {
-    file, err := os.Create(filename)
-    if err != nil {
-        return err
-    }
-    defer file.Close()
+// Работа с медиафайлами
+func saveMessagePhoto(botToken, fileID string) (string, error) {
+	fileInfoURL := fmt.Sprintf("https://api.telegram.org/bot%s/getFile?file_id=%s", botToken, fileID)
+	resp, err := http.Get(fileInfoURL)
+	if err != nil {
+		return "", fmt.Errorf("ошибка при запросе к getFile: %v", err)
+	}
+	defer resp.Body.Close()
 
-    encoder := json.NewEncoder(file)
-    encoder.SetIndent("", "  ") // Для красивого форматирования JSON
-    err = encoder.Encode(usersData)
-    if err != nil {
-        return err
-    }
+	var fileResponse FileResponse
+	if err := json.NewDecoder(resp.Body).Decode(&fileResponse); err != nil {
+		return "", fmt.Errorf("ошибка декодирования JSON: %v", err)
+	}
 
-    return nil
+	fileURL := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", botToken, fileResponse.Result.FilePath)
+	if _, err := os.Stat("photos"); os.IsNotExist(err) {
+		os.Mkdir("photos", 0755)
+	}
+
+	resp, err = http.Get(fileURL)
+	if err != nil {
+		return "", fmt.Errorf("ошибка скачивания файла: %v", err)
+	}
+	defer resp.Body.Close()
+
+	filename := fmt.Sprintf("photos/%s_%d.jpg", fileID, time.Now().Unix())
+	out, err := os.Create(filename)
+	if err != nil {
+		return "", fmt.Errorf("ошибка создания файла: %v", err)
+	}
+	defer out.Close()
+
+	if _, err = io.Copy(out, resp.Body); err != nil {
+		return "", fmt.Errorf("ошибка записи файла: %v", err)
+	}
+
+	return filename, nil
 }
 
-// getUserAvatar получает и сохраняет аватар пользователя
-func getUserAvatar(botToken string, userID string) (string, error) {
-    // Шаг 1: Получить фото профиля пользователя
-    photosURL := fmt.Sprintf("https://api.telegram.org/bot%s/getUserProfilePhotos?user_id=%s", botToken, userID)
-    resp, err := http.Get(photosURL)
-    if err != nil {
-        return "", fmt.Errorf("ошибка при запросе к API: %v", err)
-    }
-    defer resp.Body.Close()
+func getUserAvatar(botToken, userID string) (string, error) {
+	photosURL := fmt.Sprintf("https://api.telegram.org/bot%s/getUserProfilePhotos?user_id=%s", botToken, userID)
+	resp, err := http.Get(photosURL)
+	if err != nil {
+		return "", fmt.Errorf("ошибка запроса к API: %v", err)
+	}
+	defer resp.Body.Close()
 
-    // Декодируем JSON-ответ
-    var userProfilePhotos UserProfilePhotos
-    err = json.NewDecoder(resp.Body).Decode(&userProfilePhotos)
-    if err != nil {
-        return "", fmt.Errorf("ошибка при декодировании JSON: %v", err)
-    }
+	var userProfilePhotos UserProfilePhotos
+	if err := json.NewDecoder(resp.Body).Decode(&userProfilePhotos); err != nil {
+		return "", fmt.Errorf("ошибка декодирования JSON: %v", err)
+	}
 
-    // Проверяем, есть ли фотографии
-    if userProfilePhotos.Result.TotalCount == 0 {
-        return "у пользователя нет аватара", nil
-    }
+	if userProfilePhotos.Result.TotalCount == 0 {
+		return "у пользователя нет аватара", nil
+	}
 
-    // Берем первый файл ID из списка
-    fileID := userProfilePhotos.Result.Photos[0][0].FileID
+	fileID := userProfilePhotos.Result.Photos[0][0].FileID
+	fileInfoURL := fmt.Sprintf("https://api.telegram.org/bot%s/getFile?file_id=%s", botToken, fileID)
+	resp, err = http.Get(fileInfoURL)
+	if err != nil {
+		return "", fmt.Errorf("ошибка запроса к getFile: %v", err)
+	}
+	defer resp.Body.Close()
 
-    // Шаг 2: Получить путь к файлу
-    fileInfoURL := fmt.Sprintf("https://api.telegram.org/bot%s/getFile?file_id=%s", botToken, fileID)
-    resp, err = http.Get(fileInfoURL)
-    if err != nil {
-        return "", fmt.Errorf("ошибка при запросе к getFile: %v", err)
-    }
-    defer resp.Body.Close()
+	var fileResponse FileResponse
+	if err := json.NewDecoder(resp.Body).Decode(&fileResponse); err != nil {
+		return "", fmt.Errorf("ошибка декодирования JSON: %v", err)
+	}
 
-    // Декодируем JSON-ответ
-    var fileResponse FileResponse
-    err = json.NewDecoder(resp.Body).Decode(&fileResponse)
-    if err != nil {
-        return "", fmt.Errorf("ошибка при декодировании JSON для getFile: %v", err)
-    }
+	fileURL := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", botToken, fileResponse.Result.FilePath)
+	resp, err = http.Get(fileURL)
+	if err != nil {
+		return "", fmt.Errorf("ошибка скачивания файла: %v", err)
+	}
+	defer resp.Body.Close()
 
-    // Формируем URL для скачивания файла
-    fileURL := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", botToken, fileResponse.Result.FilePath)
+	filename := userID + ".jpg"
+	out, err := os.Create(filename)
+	if err != nil {
+		return "", fmt.Errorf("ошибка создания файла: %v", err)
+	}
+	defer out.Close()
 
-    // Шаг 3: Скачиваем файл
-    resp, err = http.Get(fileURL)
-    if err != nil {
-        return "", fmt.Errorf("ошибка при скачивании файла: %v", err)
-    }
-    defer resp.Body.Close()
+	if _, err = io.Copy(out, resp.Body); err != nil {
+		return "", fmt.Errorf("ошибка записи файла: %v", err)
+	}
 
-    // Сохраняем файл локально
-    filename := userID + ".jpg"
-    out, err := os.Create(filename)
-    if err != nil {
-        return "", fmt.Errorf("ошибка при создании файла: %v", err)
-    }
-    defer out.Close()
-
-    _, err = io.Copy(out, resp.Body)
-    if err != nil {
-        return "", fmt.Errorf("ошибка при записи файла: %v", err)
-    }
-
-    return fmt.Sprintf("аватар успешно скачан как %s", filename), nil
+	return fmt.Sprintf("аватар успешно скачан как %s", filename), nil
 }
 
+// Формирование ответа
+func generateReply(update tgbotapi.Update, message Message) string {
+	from := update.Message.From
+	replyText := "Получены следующие данные:\n\n"
+	replyText += fmt.Sprintf("Текст сообщения: %s\n", update.Message.Text)
+	replyText += fmt.Sprintf("ID сообщения: %d\n", update.Message.MessageID)
+	replyText += fmt.Sprintf("Имя пользователя: %s\n", from.FirstName)
+	replyText += fmt.Sprintf("Фамилия пользователя: %s\n", from.LastName)
+	replyText += fmt.Sprintf("Никнейм пользователя: %s\n", from.UserName)
+	replyText += fmt.Sprintf("ID пользователя: %d\n", from.ID)
+
+	if len(message.PhotoIDs) > 0 {
+		replyText += "К сообщению прикреплено фото\n"
+	}
+
+	avatarInfo, err := getUserAvatar("YOUR_BOT_TOKEN", strconv.FormatInt(from.ID, 10))
+	if err != nil {
+		replyText += fmt.Sprintf("\nИнформация об аватаре: %s", err.Error())
+	} else {
+		replyText += fmt.Sprintf("\nИнформация об аватаре: %s", avatarInfo)
+	}
+
+	return replyText
+}
+
+// Основная функция
 func main() {
-    botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
-    if botToken == "" {
-        log.Fatal("TELEGRAM_BOT_TOKEN environment variable not set")
-    }
+	bot, err := initBot("7217078454:AAGqrgEr_JuoJnwqwf1xU5P3lO--GnDtCIg")
+	if err != nil {
+		log.Panic(err)
+	}
 
-    bot, err := tgbotapi.NewBotAPI("7217078454:AAGqrgEr_JuoJnwqwf1xU5P3lO--GnDtCIg")
-    if err != nil {
-        log.Panic(err)
-    }
+	ctx := &BotContext{
+		Bot:            bot,
+		UsersDataFile:  "users_data.json",
+		MessagesDataFile: "messages_data.json",
+	}
 
-    bot.Debug = true
-    log.Printf("Authorized on account %s", bot.Self.UserName)
+	u := tgbotapi.NewUpdate(0)
+	u.Timeout = 10
+	updates := bot.GetUpdatesChan(u)
 
-    u := tgbotapi.NewUpdate(0)
-    u.Timeout = 60
+	for update := range updates {
+		if update.Message == nil {
+			continue
+		}
 
-    updates := bot.GetUpdatesChan(u)
+		// Обработка пользователя
+		if err := handleUserRegistration(ctx, update); err != nil {
+			log.Printf("Ошибка обработки пользователя: %v", err)
+		}
 
-    // Имя файла для хранения данных о пользователях
-    usersDataFile := "users_data.json"
+		// Обработка сообщения
+		if err := handleMessage(ctx, update); err != nil {
+			log.Printf("Ошибка обработки сообщения: %v", err)
+		}
 
-    for update := range updates {
-        if update.Message == nil {
-            continue
-        }
+		// Формирование и отправка ответа
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, generateReply(update, Message{
+			UserID:    update.Message.From.ID,
+			MessageID: update.Message.MessageID,
+			Text:      update.Message.Text,
+		}))
+		msg.ReplyToMessageID = update.Message.MessageID
 
-        // Загружаем данные о пользователях из файла
-        usersData, err := loadUsersData(usersDataFile)
-        if err != nil {
-            log.Printf("Ошибка при загрузке данных о пользователях: %v", err)
-        }
-
-        // Извлекаем данные
-        userID := update.Message.From.ID
-        userFirstName := update.Message.From.FirstName
-        userLastName := update.Message.From.LastName // Фамилия
-        username := update.Message.From.UserName    // Никнейм
-
-        // Проверяем, есть ли уже пользователь в файле
-        userExists := false
-        var existingUserIndex int
-        for i, user := range usersData.Users {
-            if user.UserID == userID {
-                userExists = true
-                existingUserIndex = i
-                break
-            }
-        }
-
-        // Если пользователь отправил контакт
-        if update.Message.Contact != nil {
-            phoneNumber := update.Message.Contact.PhoneNumber
-
-            // Если пользователь уже существует, обновляем номер телефона
-            if userExists {
-                usersData.Users[existingUserIndex].PhoneNumber = phoneNumber
-            } else {
-                // Если пользователя нет, добавляем нового
-                newUser := User{
-                    UserID:          userID,
-                    UserFirstName:   userFirstName,
-                    UserLastName:    userLastName, // Сохраняем фамилию
-                    Username:        username,    // Сохраняем никнейм
-                    PhoneNumber:     phoneNumber,
-                    RegistrationDate: time.Now(),
-                }
-                usersData.Users = append(usersData.Users, newUser)
-            }
-
-            // Сохраняем обновленные данные в файл
-            err = saveUsersData(usersDataFile, usersData)
-            if err != nil {
-                log.Printf("Ошибка при сохранении данных о пользователях: %v", err)
-            }
-
-            // Отправляем подтверждение
-            msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Номер телефона сохранен!")
-            msg.ReplyToMessageID = update.Message.MessageID
-            if _, err := bot.Send(msg); err != nil {
-                log.Panic(err)
-            }
-            continue
-        }
-
-        // Если пользователь отправил текстовое сообщение
-        messageText := update.Message.Text
-        messageID := update.Message.MessageID
-
-        // Если пользователя нет, добавляем его
-        if !userExists {
-            newUser := User{
-                UserID:          userID,
-                UserFirstName:   userFirstName,
-                UserLastName:    userLastName, // Сохраняем фамилию
-                Username:        username,    // Сохраняем никнейм
-                RegistrationDate: time.Now(),
-            }
-            usersData.Users = append(usersData.Users, newUser)
-
-            // Сохраняем обновленные данные в файл
-            err = saveUsersData(usersDataFile, usersData)
-            if err != nil {
-                log.Printf("Ошибка при сохранении данных о пользователях: %v", err)
-            }
-        }
-
-        // Формируем ответ
-        replyText := "Получены следующие данные:\n\n"
-        replyText += "Текст сообщения: " + messageText + "\n"
-        replyText += "ID сообщения: " + strconv.Itoa(messageID) + "\n"
-        replyText += "Имя пользователя: " + userFirstName + "\n"
-        replyText += "Фамилия пользователя: " + userLastName + "\n" // Выводим фамилию
-        replyText += "Никнейм пользователя: " + username + "\n"    // Выводим никнейм
-        replyText += "ID пользователя: " + strconv.FormatInt(userID, 10) + "\n"
-
-        if userExists {
-            replyText += "\nПользователь уже существует в базе данных."
-        } else {
-            replyText += "\nПользователь успешно добавлен в базу данных."
-        }
-
-        // Добавляем информацию об аватаре
-        avatarInfo, err := getUserAvatar(botToken, strconv.FormatInt(userID, 10))
-        if err != nil {
-            replyText += "\nИнформация об аватаре: " + err.Error()
-        } else {
-            replyText += "\nИнформация об аватаре: " + avatarInfo
-        }
-
-        msg := tgbotapi.NewMessage(update.Message.Chat.ID, replyText)
-        msg.ReplyToMessageID = update.Message.MessageID
-
-        if _, err := bot.Send(msg); err != nil {
-            log.Panic(err)
-        }
-    }
+		if _, err := bot.Send(msg); err != nil {
+			log.Printf("Ошибка отправки сообщения: %v", err)
+		}
+	}
 }
