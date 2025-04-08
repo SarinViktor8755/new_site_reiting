@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Хаотичное движение цифр</title>
+  <title>Анимация с летающими цифрами</title>
   <style>
     body {
       margin: 0;
@@ -17,6 +17,16 @@
       position: absolute;
       font-size: 24px;
       font-weight: bold;
+      animation: moveAndRotate 10s linear infinite;
+    }
+
+    @keyframes moveAndRotate {
+      0% {
+        transform: translate(0, 0) rotate(0deg);
+      }
+      100% {
+        transform: translate(100vw, 100vh) rotate(360deg);
+      }
     }
   </style>
 </head>
@@ -24,7 +34,7 @@
   <script>
     // Функция для генерации случайного числа в заданном диапазоне
     function getRandomNumber(min, max) {
-      return Math.random() * (max - min) + min;
+      return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 
     // Функция для генерации случайного цвета
@@ -37,71 +47,35 @@
       return color;
     }
 
-    // Создание летающей цифры
+    // Функция для создания летающей цифры
     function createFlyingDigit() {
       const digit = document.createElement('div');
       digit.classList.add('digit');
 
       // Установка случайной цифры
-      digit.textContent = Math.floor(getRandomNumber(0, 9));
+      digit.textContent = getRandomNumber(0, 9);
 
       // Установка случайного цвета
       digit.style.color = getRandomColor();
 
-      // Установка начальной позиции
+      // Установка случайной начальной позиции
       digit.style.left = `${getRandomNumber(0, window.innerWidth)}px`;
       digit.style.top = `${getRandomNumber(0, window.innerHeight)}px`;
 
-      // Установка начального угла вращения
-      digit.rotation = getRandomNumber(0, 360);
+      // Установка случайной длительности анимации
+      digit.style.animationDuration = `${getRandomNumber(8, 15)}s`;
 
       // Добавление цифры на страницу
       document.body.appendChild(digit);
 
-      return digit;
-    }
-
-    // Массив для хранения всех цифр
-    const digits = [];
-
-    // Функция для обновления положения цифр
-    function updateDigits() {
-      digits.forEach((digit) => {
-        // Случайное изменение скорости по X и Y
-        const speedX = getRandomNumber(-2, 2);
-        const speedY = getRandomNumber(-2, 2);
-
-        // Обновление позиции
-        let left = parseFloat(digit.style.left) + speedX;
-        let top = parseFloat(digit.style.top) + speedY;
-
-        // Проверка границ экрана
-        if (left < 0 || left > window.innerWidth) {
-          left = getRandomNumber(0, window.innerWidth);
-        }
-        if (top < 0 || top > window.innerHeight) {
-          top = getRandomNumber(0, window.innerHeight);
-        }
-
-        // Обновление позиции и угла вращения
-        digit.style.left = `${left}px`;
-        digit.style.top = `${top}px`;
-        digit.rotation += getRandomNumber(-5, 5);
-        digit.style.transform = `rotate(${digit.rotation}deg)`;
+      // Удаление элемента после завершения анимации
+      digit.addEventListener('animationend', () => {
+        digit.remove();
       });
-
-      // Запуск следующего обновления
-      requestAnimationFrame(updateDigits);
     }
 
     // Создание новых цифр каждые 500 мс
-    setInterval(() => {
-      const digit = createFlyingDigit();
-      digits.push(digit);
-    }, 500);
-
-    // Начало обновления позиций цифр
-    updateDigits();
+    setInterval(createFlyingDigit, 500);
   </script>
 </body>
 </html>
