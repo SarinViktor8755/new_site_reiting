@@ -225,6 +225,129 @@ func getUserAvatar(botToken string, userID string) (string, error) {
     return fmt.Sprintf("аватар успешно скачан как %s", filename), nil
 }
 
+// Обработка пользователя
+func handleUser(update tgbotapi.Update, usersData *UsersData) bool {
+    userID := update.Message.From.ID
+    for _, user := range usersData.Users {
+        if user.UserID == userID {
+            return true // Пользователь уже существует
+        }
+    }
+    return false // Пользователь новый
+}
+
+// Обработка контакта
+func handleContact(update tgbotapi.Update, usersData *UsersData, bot *tgbotapi.BotAPI) {
+    userID := update.Message.From.ID
+    phoneNumber := update.Message.Contact.PhoneNumber
+    userExists := false
+    var existingUserIndex int
+
+    for i, user := range usersData.Users {
+        if user.UserID == userID {
+            userExists = true
+            existingUserIndex = i
+            break
+        }
+    }
+
+    if userExists {
+        usersData.Users[existingUserIndex].PhoneNumber = phoneNumber
+    } else {
+        newUser := User{
+            UserID:          userID,
+            UserFirstName:   update.Message.From.FirstName,
+            UserLastName:    update.Message.From.LastName,
+            Username:        update.Message.From.UserName,
+            PhoneNumber:     phoneNumber,
+            RegistrationDate: time.Now(),
+        }
+        usersData.Users = append(usersData.Users, newUser)
+    }
+
+    msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Номер телефона сохранен!")
+    msg.ReplyToMessageID = update.Message.MessageID
+    bot.Send(msg)
+}
+
+// Добавление нового пользователя, если его нет
+func addUserIfNotExists(update tgbotapi.Update, usersData *UsersData) {
+    userID := update.Message.From.ID
+    userExists := false
+
+    for _, user := range usersData.Users {
+        if user.UserID == userID {
+            userExists = true
+            break
+        }
+    }
+
+    if !userExists {
+        newUser := User{
+            UserID:          userID,
+            UserFirstName:   update.Message.From.FirstName,
+            UserLastName:    update.Message.From.LastName,
+            Username:        update.Message.From.UserName,
+            RegistrationDate: time.Now(),
+        }
+        usersData.Users = append(usersData.Users, newUser)
+    }
+}
+
+// Обработка сообщения
+func handleMessage(update tgbotapi.Update, messagesData *MessagesData, botToken string) Message {
+    newMessage := Message{
+        UserID:      update.Message.From.ID,
+        MessageID:   update.Message.MessageID,
+        Text:        update.Message.Text,
+        MessageDate: time.Now(),
+    }
+
+    if update.Message.Photo != nil && len(update.Message.Photo) > 0 {
+        var photoIDs []string
+        var photoPaths []string
+
+        photo := update.Message.Photo[len(update.Message.Photo)-1]
+        photoIDs = append(photoIDs, photo.FileID)
+
+        photoPath, err := saveMessagePhoto(botToken, photo.FileID)
+        if err != nil {
+            log.Printf("Ошибка при сохранении фото: %v", err)
+        } else {
+            photoPaths = append(photoPaths, photoPath)
+        }
+
+        newMessage.PhotoIDs = photoIDs
+        newMessage.PhotoPaths = photoPaths
+    }
+
+    messagesData.Messages = append(messagesData.Messages, newMessage)
+    return newMessage
+}
+
+// Формирование ответа
+func createReplyText(update tgbotapi.Update, newMessage Message, avatarInfo string, err error) string {
+    replyText := "Получены следующие данные:\n\n"
+    replyText += "Текст сообщения: " + update.Message.Text + "\n"
+    replyText += "ID сообщения: " + strconv.Itoa(update.Message.MessageID) + "\n"
+    replyText += "Имя пользователя: " + update.Message.From.FirstName + "\n"
+    replyText += "Фамилия пользователя: " + update.Message.From.LastName + "\n"
+    replyText += "Никнейм пользователя: " + update.Message.From.UserName + "\n"
+    replyText += "ID пользователя: " + strconv.FormatInt(update.Message.From.ID, 10) + "\n"
+
+    if len(newMessage.PhotoIDs) > 0 {
+        replyText += "К сообщению прикреплено фото\n"
+    }
+
+    if err != nil {
+        replyText += "\nИнформация об аватаре: " + err.Error()
+    } else {
+        replyText += "\nИнформация об аватаре: " + avatarInfo
+    }
+
+    return replyText
+}
+
 func main() {
     botToken := "7217078454:AAGqrgEr_JuoJnwqwf1xU5P3lO--GnDtCIg"
     bot, err := tgbotapi.NewBotAPI(botToken)
@@ -249,114 +372,35 @@ func main() {
             continue
         }
 
-        // Обработка пользователя
+        // Загрузка данных
         usersData, _ := loadUsersData(usersDataFile)
-        userID := update.Message.From.ID
-        userFirstName := update.Message.From.FirstName
-        userLastName := update.Message.From.LastName
-        username := update.Message.From.UserName
+        messagesData, _ := loadMessagesData(messagesDataFile)
 
-        userExists := false
-        var existingUserIndex int
-        for i, user := range usersData.Users {
-            if user.UserID == userID {
-                userExists = true
-                existingUserIndex = i
-                break
-            }
+        // Обработка пользователя
+        userExists := handleUser(update, &usersData)
+        if !userExists {
+            addUserIfNotExists(update, &usersData)
         }
 
         // Обработка контакта
         if update.Message.Contact != nil {
-            phoneNumber := update.Message.Contact.PhoneNumber
-            if userExists {
-                usersData.Users[existingUserIndex].PhoneNumber = phoneNumber
-            } else {
-                newUser := User{
-                    UserID:          userID,
-                    UserFirstName:   userFirstName,
-                    UserLastName:    userLastName,
-                    Username:        username,
-                    PhoneNumber:     phoneNumber,
-                    RegistrationDate: time.Now(),
-                }
-                usersData.Users = append(usersData.Users, newUser)
-            }
-
-            saveUsersData(usersDataFile, usersData)
-
-            msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Номер телефона сохранен!")
-            msg.ReplyToMessageID = update.Message.MessageID
-            bot.Send(msg)
-            continue
-        }
-
-        // Добавление нового пользователя, если его нет
-        if !userExists {
-            newUser := User{
-                UserID:          userID,
-                UserFirstName:   userFirstName,
-                UserLastName:    userLastName,
-                Username:        username,
-                RegistrationDate: time.Now(),
-            }
-            usersData.Users = append(usersData.Users, newUser)
-            saveUsersData(usersDataFile, usersData)
+            handleContact(update, &usersData, bot)
         }
 
         // Обработка сообщения
-        messagesData, _ := loadMessagesData(messagesDataFile)
-        newMessage := Message{
-            UserID:      userID,
-            MessageID:   update.Message.MessageID,
-            Text:        update.Message.Text,
-            MessageDate: time.Now(),
-        }
+        newMessage := handleMessage(update, &messagesData, botToken)
 
-        // Обработка фото
-        if update.Message.Photo != nil && len(update.Message.Photo) > 0 {
-            var photoIDs []string
-            var photoPaths []string
-
-            // Берем последнее (самое большое) фото из массива
-            photo := update.Message.Photo[len(update.Message.Photo)-1]
-            photoIDs = append(photoIDs, photo.FileID)
-
-            photoPath, err := saveMessagePhoto(botToken, photo.FileID)
-            if err != nil {
-                log.Printf("Ошибка при сохранении фото: %v", err)
-            } else {
-                photoPaths = append(photoPaths, photoPath)
-            }
-
-            newMessage.PhotoIDs = photoIDs
-            newMessage.PhotoPaths = photoPaths
-        }
-
-        messagesData.Messages = append(messagesData.Messages, newMessage)
+        // Сохранение данных
+        saveUsersData(usersDataFile, usersData)
         saveMessagesData(messagesDataFile, messagesData)
 
-        // Формирование ответа
-        replyText := "Получены следующие данные:\n\n"
-        replyText += "Текст сообщения: " + update.Message.Text + "\n"
-        replyText += "ID сообщения: " + strconv.Itoa(update.Message.MessageID) + "\n"
-        replyText += "Имя пользователя: " + userFirstName + "\n"
-        replyText += "Фамилия пользователя: " + userLastName + "\n"
-        replyText += "Никнейм пользователя: " + username + "\n"
-        replyText += "ID пользователя: " + strconv.FormatInt(userID, 10) + "\n"
-
-        if len(newMessage.PhotoIDs) > 0 {
-            replyText += "К сообщению прикреплено фото\n"
-        }
-
         // Информация об аватаре
-        avatarInfo, err := getUserAvatar(botToken, strconv.FormatInt(userID, 10))
-        if err != nil {
-            replyText += "\nИнформация об аватаре: " + err.Error()
-        } else {
-            replyText += "\nИнформация об аватаре: " + avatarInfo
-        }
+        avatarInfo, err := getUserAvatar(botToken, strconv.FormatInt(update.Message.From.ID, 10))
 
+        // Формирование ответа
+        replyText := createReplyText(update, newMessage, avatarInfo, err)
+
+        // Отправка ответа
         msg := tgbotapi.NewMessage(update.Message.Chat.ID, replyText)
         msg.ReplyToMessageID = update.Message.MessageID
         bot.Send(msg)
