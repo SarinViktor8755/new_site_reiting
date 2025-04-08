@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Хаотичное движение цифр</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+
+    .digit {
+      position: absolute;
+      font-size: 24px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <script>
+    // Функция для генерации случайного числа в заданном диапазоне
+    function getRandomNumber(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+
+    // Функция для генерации случайного цвета
+    function getRandomColor() {
+      const letters = '0123456789ABCDEF';
+      let color = '#';
+      for (let i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+      }
+      return color;
+    }
+
+    // Создание летающей цифры
+    function createFlyingDigit() {
+      const digit = document.createElement('div');
+      digit.classList.add('digit');
+
+      // Установка случайной цифры
+      digit.textContent = Math.floor(getRandomNumber(0, 9));
+
+      // Установка случайного цвета
+      digit.style.color = getRandomColor();
+
+      // Установка начальной позиции
+      digit.style.left = `${getRandomNumber(0, window.innerWidth)}px`;
+      digit.style.top = `${getRandomNumber(0, window.innerHeight)}px`;
+
+      // Установка начального угла вращения
+      digit.rotation = getRandomNumber(0, 360);
+
+      // Добавление цифры на страницу
+      document.body.appendChild(digit);
+
+      return digit;
+    }
+
+    // Массив для хранения всех цифр
+    const digits = [];
+
+    // Функция для обновления положения цифр
+    function updateDigits() {
+      digits.forEach((digit) => {
+        // Случайное изменение скорости по X и Y
+        const speedX = getRandomNumber(-2, 2);
+        const speedY = getRandomNumber(-2, 2);
+
+        // Обновление позиции
+        let left = parseFloat(digit.style.left) + speedX;
+        let top = parseFloat(digit.style.top) + speedY;
+
+        // Проверка границ экрана
+        if (left < 0 || left > window.innerWidth) {
+          left = getRandomNumber(0, window.innerWidth);
+        }
+        if (top < 0 || top > window.innerHeight) {
+          top = getRandomNumber(0, window.innerHeight);
+        }
+
+        // Обновление позиции и угла вращения
+        digit.style.left = `${left}px`;
+        digit.style.top = `${top}px`;
+        digit.rotation += getRandomNumber(-5, 5);
+        digit.style.transform = `rotate(${digit.rotation}deg)`;
+      });
+
+      // Запуск следующего обновления
+      requestAnimationFrame(updateDigits);
+    }
+
+    // Создание новых цифр каждые 500 мс
+    setInterval(() => {
+      const digit = createFlyingDigit();
+      digits.push(digit);
+    }, 500);
+
+    // Начало обновления позиций цифр
+    updateDigits();
+  </script>
+</body>
+</html>

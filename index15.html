@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Анимация с летающими цифрами</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+
+    .digit {
+      position: absolute;
+      font-size: 24px;
+      font-weight: bold;
+      animation: moveAndRotate 10s linear infinite;
+    }
+
+    @keyframes moveAndRotate {
+      0% {
+        transform: translate(0, 0) rotate(0deg);
+      }
+      100% {
+        transform: translate(100vw, 100vh) rotate(360deg);
+      }
+    }
+  </style>
+</head>
+<body>
+  <script>
+    // Функция для генерации случайного числа в заданном диапазоне
+    function getRandomNumber(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    // Функция для генерации случайного цвета
+    function getRandomColor() {
+      const letters = '0123456789ABCDEF';
+      let color = '#';
+      for (let i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+      }
+      return color;
+    }
+
+    // Функция для создания летающей цифры
+    function createFlyingDigit() {
+      const digit = document.createElement('div');
+      digit.classList.add('digit');
+
+      // Установка случайной цифры
+      digit.textContent = getRandomNumber(0, 9);
+
+      // Установка случайного цвета
+      digit.style.color = getRandomColor();
+
+      // Установка случайной начальной позиции
+      digit.style.left = `${getRandomNumber(0, window.innerWidth)}px`;
+      digit.style.top = `${getRandomNumber(0, window.innerHeight)}px`;
+
+      // Установка случайной длительности анимации
+      digit.style.animationDuration = `${getRandomNumber(8, 15)}s`;
+
+      // Добавление цифры на страницу
+      document.body.appendChild(digit);
+
+      // Удаление элемента после завершения анимации
+      digit.addEventListener('animationend', () => {
+        digit.remove();
+      });
+    }
+
+    // Создание новых цифр каждые 500 мс
+    setInterval(createFlyingDigit, 500);
+  </script>
+</body>
+</html>
