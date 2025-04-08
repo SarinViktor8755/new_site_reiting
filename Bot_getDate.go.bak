@@ -159,7 +159,7 @@ func main() {
         log.Fatal("TELEGRAM_BOT_TOKEN environment variable not set")
     }
 
-    bot, err := tgbotapi.NewBotAPI(botToken)
+    bot, err := tgbotapi.NewBotAPI("7217078454:AAGqrgEr_JuoJnwqwf1xU5P3lO--GnDtCIg")
     if err != nil {
         log.Panic(err)
     }
