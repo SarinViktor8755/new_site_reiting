@@ -77,6 +77,34 @@ func loadUsersData(filename string) (UsersData, error) {
 	return usersData, nil
 }
 
+func removeLastMessage(messagesDataFile string, userID int64) (Message, error) {
+	messagesData, err := loadMessagesData(messagesDataFile)
+	if err != nil {
+		return Message{}, fmt.Errorf("ошибка загрузки данных сообщений: %v", err)
+	}
+
+	var lastMessage Message
+	found := false
+	for i := len(messagesData.Messages) - 1; i >= 0; i-- {
+		if messagesData.Messages[i].UserID == userID {
+			lastMessage = messagesData.Messages[i]
+			messagesData.Messages = append(messagesData.Messages[:i], messagesData.Messages[i+1:]...)
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return Message{}, fmt.Errorf("сообщения пользователя с ID %d не найдены", userID)
+	}
+
+	if err := saveMessagesData(messagesDataFile, messagesData); err != nil {
+		return Message{}, fmt.Errorf("ошибка сохранения данных: %v", err)
+	}
+
+	return lastMessage, nil
+}
+
 func saveUsersData(filename string, usersData UsersData) error {
 	// Создаем директорию JSON, если её нет
 	dir := filepath.Dir(filename)
@@ -333,6 +361,29 @@ func main() {
 		}
 
 		if update.Message == nil {
+			continue
+		}
+
+		// Проверка на команду /rm
+		if update.Message.Text == "/rm" {
+			userID := update.Message.From.ID
+			lastMessage, err := removeLastMessage(messagesDataFile, userID)
+			if err != nil {
+				msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Ошибка: "+err.Error())
+				bot.Send(msg)
+				continue
+			}
+
+			// Формирование текста удаленного сообщения
+			replyText := "Удалено ваше последнее сообщение:\n"
+			replyText += "Текст: " + lastMessage.Text + "\n"
+			replyText += "ID сообщения: " + strconv.Itoa(lastMessage.MessageID) + "\n"
+			replyText += "Дата: " + lastMessage.MessageDate.Format(time.RFC3339) + "\n"
+
+			// Отправка ответа на удаленное сообщение
+			msg := tgbotapi.NewMessage(update.Message.Chat.ID, replyText)
+			msg.ReplyToMessageID = lastMessage.MessageID
+			bot.Send(msg)
 			continue
 		}
 
