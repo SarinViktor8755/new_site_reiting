@@ -28,11 +28,25 @@ type FileResponse struct {
 }
 
 func main() {
-    // Замените на ваш токен и ID пользователя
-    botToken := "7217078454:AAGqrgEr_JuoJnwqwf1xU5P3lO--GnDtCIg"
-    userID := "370195432"
+	// Замените на ваш токен и ID пользователя
+	botToken := "7217078454:AAGqrgEr_JuoJnwqwf1xU5P3lO--GnDtCIg"
+	userID := "370195432"
 
-    // Шаг 1: Получить фото профиля пользователя
+	// Попытка создать файл блокировки
+	lockFile, err := os.OpenFile("bot.lock", os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		fmt.Println("Не удалось создать файл блокировки:", err)
+		return
+	}
+	defer lockFile.Close()
+
+	// Попытка заблокировать файл
+	err = syscall.Flock(int(lockFile.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+	if err != nil {
+		fmt.Println("завершено другим запросом getUpdates; убедитесь, что запущен только один экземпляр бота")
+		return
+	}
+	defer syscall.Flock(int(lockFile.Fd()), syscall.LOCK_UN)
     photosURL := fmt.Sprintf("https://api.telegram.org/bot%s/getUserProfilePhotos?user_id=%s", botToken, userID)
     resp, err := http.Get(photosURL)
 	fmt.Println("Ошибка при запросе к getFile:", photosURL)
