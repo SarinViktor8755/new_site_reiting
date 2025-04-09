@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -334,6 +336,55 @@ func getUserAvatar(botToken string, userID string) (string, error) {
 	return fmt.Sprintf("аватар успешно скачан как %s", filename), nil
 }
 
+func extractDistance(message string) float64 {
+	// Удаляем все пробелы из сообщения
+	cleaned := strings.ReplaceAll(message, " ", "")
+
+	// Ищем все вхождения "#км" в любом регистре
+	reKm := regexp.MustCompile(`(?i)#км`)
+	if !reKm.MatchString(cleaned) {
+		return -1
+	}
+
+	// Ищем все числа с + перед ними (с плавающей точкой или натуральные)
+	reNumbers := regexp.MustCompile(`\+(\d+[\.,]?\d*)`)
+	matches := reNumbers.FindAllStringSubmatch(cleaned, -1)
+
+	if len(matches) == 0 {
+		return -1
+	}
+
+	var sum float64
+	for _, match := range matches {
+		if len(match) < 2 {
+			continue
+		}
+
+		// Заменяем запятую на точку для корректного преобразования
+		numStr := strings.Replace(match[1], ",", ".", -1)
+		num, err := strconv.ParseFloat(numStr, 64)
+		if err != nil {
+			continue
+		}
+		sum += num
+	}
+
+	return sum
+}
+
+func FloatToString(f float64) string {
+	// Сначала преобразуем в строку с достаточной точностью
+	str := strconv.FormatFloat(f, 'f', 10, 64)
+
+	// Удаляем лишние нули в конце
+	str = strings.TrimRight(str, "0")
+
+	// Если осталась точка в конце, удаляем и ее
+	str = strings.TrimRight(str, ".")
+
+	return str
+}
+
 func main() {
 	botToken := "7217078454:AAGqrgEr_JuoJnwqwf1xU5P3lO--GnDtCIg"
 	bot, err := tgbotapi.NewBotAPI(botToken)
@@ -483,6 +534,7 @@ func main() {
 		// Формирование ответа
 		replyText := "Получены следующие данные:\n\n"
 		replyText += "Текст сообщения: " + update.Message.Text + "\n"
+		replyText += "11: " + fmt.Sprintf("%v", extractDistance(update.Message.Text)) + "\n"
 		replyText += "ID сообщения: " + strconv.Itoa(update.Message.MessageID) + "\n"
 		replyText += "Имя пользователя: " + userFirstName + "\n"
 		replyText += "Фамилия пользователя: " + userLastName + "\n"
