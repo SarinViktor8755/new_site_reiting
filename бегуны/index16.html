@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Анимация "Сквозь космос"</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      perspective: 500px; /* Добавляем перспективу */
+      height: 100vh;
+    }
+
+    .digit {
+      position: absolute;
+      font-size: 24px;
+      font-weight: bold;
+      transform-style: preserve-3d; /* Сохраняем 3D-преобразования */
+      animation: flyThroughSpace 10s linear infinite;
+    }
+
+    @keyframes flyThroughSpace {
+      0% {
+        transform: translateZ(-1000px) rotate(0deg);
+        opacity: 0;
+      }
+      50% {
+        transform: translateZ(0px) rotate(180deg);
+        opacity: 1;
+      }
+      100% {
+        transform: translateZ(1000px) rotate(360deg);
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <script>
+    // Функция для генерации случайного числа в заданном диапазоне
+    function getRandomNumber(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+
+    // Функция для генерации случайного цвета
+    function getRandomColor() {
+      const letters = '0123456789ABCDEF';
+      let color = '#';
+      for (let i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+      }
+      return color;
+    }
+
+    // Функция для создания летающей цифры
+    function createFlyingDigit() {
+      const digit = document.createElement('div');
+      digit.classList.add('digit');
+
+      // Установка случайной цифры от 0 до 23
+      digit.textContent = Math.floor(getRandomNumber(0, 23));
+
+      // Установка случайного цвета
+      digit.style.color = getRandomColor();
+
+      // Установка случайной начальной позиции
+      digit.style.left = `${getRandomNumber(0, window.innerWidth)}px`;
+      digit.style.top = `${getRandomNumber(0, window.innerHeight)}px`;
+
+      // Установка случайного масштаба (размера)
+      const scale = getRandomNumber(0.5, 2); // Масштаб от 0.5 до 2
+      digit.style.transform = `scale(${scale})`;
+
+      // Установка случайной длительности анимации
+      digit.style.animationDuration = `${getRandomNumber(8, 15)}s`;
+
+      // Добавление цифры на страницу
+      document.body.appendChild(digit);
+
+      // Удаление элемента после завершения анимации
+      digit.addEventListener('animationend', () => {
+        digit.remove();
+      });
+    }
+
+    // Создание новых цифр каждые 500 мс
+    setInterval(createFlyingDigit, 500);
+  </script>
+</body>
+</html>

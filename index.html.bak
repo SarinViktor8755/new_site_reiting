@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Статистика бегунов</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .runner-card {
+            transition: transform 0.3s;
+            margin-bottom: 20px;
+        }
+        .runner-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .runner-avatar {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+        .stats-card {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .run-photo {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .total-distance {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #0d6efd;
+        }
+        .loading-spinner {
+            display: none;
+        }
+        .modal-image {
+            max-width: 100%;
+            max-height: 80vh;
+        }
+        .badge-distance {
+            font-size: 0.9rem;
+            padding: 0.35em 0.65em;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-running me-2"></i>Статистика бегунов
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#"><i class="fas fa-home me-1"></i> Главная</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#stats"><i class="fas fa-chart-bar me-1"></i> Статистика</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container my-5">
+        <div class="text-center mb-5">
+            <h1 class="display-4">Статистика бегового клуба</h1>
+            <p class="lead">Треккинг пробежек всех участников</p>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-6 mx-auto">
+                <div class="input-group">
+                    <input type="text" id="searchInput" class="form-control" placeholder="Поиск по имени...">
+                    <button class="btn btn-outline-secondary" type="button" id="searchButton">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center my-4">
+            <div class="spinner-border text-primary loading-spinner" id="mainSpinner" role="status">
+                <span class="visually-hidden">Загрузка...</span>
+            </div>
+        </div>
+
+        <div class="row" id="runnersContainer">
+            <!-- Карточки бегунов будут загружены сюда -->
+        </div>
+    </div>
+
+    <!-- Модальное окно для подробной статистики -->
+    <div class="modal fade" id="runnerModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="runnerModalTitle">Статистика бегуна</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center mb-4">
+                        <img src="https://via.placeholder.com/150" id="modalRunnerAvatar" class="runner-avatar mb-3">
+                        <h3 id="modalRunnerName"></h3>
+                        <p class="text-muted" id="modalRunnerUsername"></p>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="stats-card">
+                                <h5><i class="fas fa-road me-2"></i>Общая статистика</h5>
+                                <div class="d-flex justify-content-between align-items-center mt-3">
+                                    <span>Всего пробежек:</span>
+                                    <span id="totalRuns" class="badge bg-primary rounded-pill">0</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    <span>Общий километраж:</span>
+                                    <span id="totalDistance" class="total-distance">0 км</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    <span>Дата регистрации:</span>
+                                    <span id="registrationDate" class="text-muted">-</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="stats-card">
+                                <h5><i class="fas fa-trophy me-2"></i>Рекорды</h5>
+                                <div class="d-flex justify-content-between align-items-center mt-3">
+                                    <span>Самая длинная пробежка:</span>
+                                    <span id="longestRun" class="badge bg-success rounded-pill">0 км</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    <span>Средний километраж:</span>
+                                    <span id="averageDistance" class="badge bg-info rounded-pill">0 км</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    <span>Последняя пробежка:</span>
+                                    <span id="lastRunDate" class="text-muted">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h5 class="mt-4"><i class="fas fa-history me-2"></i>История пробежек</h5>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Дата</th>
+                                    <th>Дистанция</th>
+                                    <th>Фото</th>
+                                </tr>
+                            </thead>
+                            <tbody id="runsTableBody">
+                                <!-- Данные о пробежках будут загружены сюда -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для фото -->
+    <div class="modal fade" id="photoModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Фото пробежки</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img src="" id="modalPhoto" class="modal-image">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-light py-4 mt-5">
+        <div class="container text-center">
+            <p class="text-muted mb-0">© 2023 Статистика бегунов. Все права защищены.</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS и зависимости -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Элементы DOM
+            const runnersContainer = document.getElementById('runnersContainer');
+            const searchInput = document.getElementById('searchInput');
+            const searchButton = document.getElementById('searchButton');
+            const mainSpinner = document.getElementById('mainSpinner');
+            
+            // URL API
+            const usersApiUrl = 'http://45.143.95.82:9090/api/users';
+            const messagesApiUrl = 'http://45.143.95.82:9090/api/messages';
+            
+            // Переменные для хранения данных
+            let runnersData = [];
+            let runsData = [];
+            
+            // Инициализация при
